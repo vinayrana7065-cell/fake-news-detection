@@ -41,7 +41,7 @@ def analyze(text):
                         "claimReview", [{}]
                     )[0].get("textualRating", "").lower()
 
-                    if any(word in rating for word in [
+                    if any(word in rating for word in. [
                         "false", "fake", "misleading",
                         "pants on fire", "incorrect"
                     ]):
