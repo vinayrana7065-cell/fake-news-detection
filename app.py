@@ -50,7 +50,7 @@ def analyze(text):
                             "note": "A published fact-check report rated this claim negatively."
                         }
 
-                    if any(word in rating for [
+                    if any(word in rating for word in [
                         "true", "correct", "accurate"
                     ]):
                         return {
