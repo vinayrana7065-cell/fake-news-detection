@@ -1,53 +1,62 @@
 from flask import Flask, render_template, request
-import re
+import pickle
 
 app = Flask(__name__)
 
-# Lightweight demo classifier: illustrative keyword/pattern scoring, NOT a trained fact-checker.
-# Replace this with a verified dataset + ML model for a research-grade project.
+# Load trained ML model and vectorizer
+with open("model.pkl", "rb") as f:
+    model = pickle.load(f)
 
-MISLEADING_PATTERNS = [
-    r'you won', r'claim your prize', r'100% guaranteed', r'click here', r'shocking',
-    r'breaking.*secret', r'no one is telling', r' miracle', r'cure.*overnight',
-    r'forward this to everyone', r'urgent!!!', r'guaranteed profit', r'free money'
-]
-
-CAUTION_PATTERNS = [r'!{2,}', r'\?{2,}', r'\b(never|always|everyone|nobody)\b', r'\b(viral|secret|miracle)\b']
+with open("vectorizer.pkl", "rb") as f:
+    vectorizer = pickle.load(f)
 
 
 def analyze(text):
     clean = text.strip()
+
     if not clean:
         return None
-    score = 0
-    hits = []
-    lower = clean.lower()
-    for pattern in MISLEADING_PATTERNS:
-        if re.search(pattern, lower):
-            score += 18
-            hits.append(pattern.replace('.*', ' '))
-    for pattern in CAUTION_PATTERNS:
-        if re.search(pattern, lower):
-            score += 7
-    # Very short text provides little context.
-    if len(clean.split()) < 8:
-        score += 12
-    score = min(score, 95)
-    status = 'Potentially misleading' if score >= 35 else 'No obvious warning patterns'
-    note = ('This text contains patterns often seen in sensational or misleading posts.'
-            if score >= 35 else 'This demo found few warning patterns in the text.')
-    return {'score': score, 'status': status, 'note': note, 'hits': hits}
+
+    # Convert news text into ML features
+    news_vector = vectorizer.transform([clean])
+
+    # Predict news label
+    prediction = model.predict(news_vector)[0]
+
+    # Get prediction confidence
+    probabilities = model.predict_proba(news_vector)[0]
+    confidence = round(max(probabilities) * 100, 2)
+
+    if prediction == 0:
+        status = "Likely Fake News"
+        note = "The trained model classified this text as fake news. This is a prediction, not a verified fact-check."
+    else:
+        status = "Likely Real News"
+        note = "The trained model classified this text as real news. This is a prediction, not a verified fact-check."
+
+    return {
+        "score": confidence,
+        "status": status,
+        "note": note,
+        "hits": []
+    }
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route("/", methods=["GET", "POST"])
 def home():
     result = None
-    submitted = ''
-    if request.method == 'POST':
-        submitted = request.form.get('news_text', '')
+    submitted = ""
+
+    if request.method == "POST":
+        submitted = request.form.get("news_text", "")
         result = analyze(submitted)
-    return render_template('index.html', result=result, submitted=submitted)
+
+    return render_template(
+        "index.html",
+        result=result,
+        submitted=submitted
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(debug=True)
